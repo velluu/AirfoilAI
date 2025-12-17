@@ -1,0 +1,78 @@
+================================================================================
+AIRFOILAI - MODEL COMPARISON METRICS
+================================================================================
+Run ID: 20251217_224239
+Timestamp: 2025-12-17 22:42:42
+
+Run Configuration:
+  task: full
+  csv: C:\Users\karth\OneDrive\Desktop\CODE\AirfoilAI\data\processed\airfrans_dataset.csv
+  train_rows: 800
+  test_rows: 200
+  features: param1,param2,param3,param4,param5,param6
+  target: L_D
+  best_model: XGBoost (n=100, λ=1.0)
+
+================================================================================
+MODEL COMPARISON RESULTS
+================================================================================
+
+ Rank                             Model  R² Train  R² Test  Adj R² Test  MAE Train  MAE Test  RMSE Train  RMSE Test  MAPE% Test  Overfitting Gap
+    1            XGBoost (n=100, λ=1.0)    0.9994   0.9768       0.9761     0.6889    3.9202      0.9428     5.6099     13.7653           0.0225
+    2           MLP (64, 32) (α=0.0001)    0.9828   0.9729       0.9720     3.5271    4.4848      4.9124     6.0696     15.2088           0.0099
+    3 Gradient Boosting (n=100, lr=0.1)    0.9889   0.9716       0.9707     2.8846    4.6543      3.9374     6.2126     18.1897           0.0173
+    4 Random Forest (n=100, depth=None)    0.9755   0.9388       0.9369     4.4532    7.1010      5.8607     9.1150     24.0479           0.0366
+    5           Decision Tree (depth=5)    0.9333   0.9015       0.8984     7.5950    8.9829      9.6635    11.5671     39.8351           0.0318
+    6                     Ridge (α=1.0)    0.7050   0.7079       0.6988    16.7117   15.9508     20.3202    19.9208     57.5178          -0.0028
+    7                 Linear Regression    0.7050   0.7078       0.6988    16.7097   15.9466     20.3202    19.9213     57.3969          -0.0028
+    8                     Lasso (α=0.1)    0.7050   0.7074       0.6983    16.7248   15.9858     20.3222    19.9366     58.1010          -0.0024
+    9     ElasticNet (α=0.1, ratio=0.5)    0.7031   0.7063       0.6972    16.8401   16.1577     20.3877    19.9742     62.4563          -0.0032
+
+================================================================================
+TOP 3 MODELS
+================================================================================
+
+1. XGBoost (n=100, λ=1.0)
+   R² Test: 0.9768
+   Adj R² Test: 0.9761
+   MAE Test: 3.9202
+   MAPE% Test: 13.77%
+   Overfitting Gap: 0.0225
+
+2. MLP (64, 32) (α=0.0001)
+   R² Test: 0.9729
+   Adj R² Test: 0.9720
+   MAE Test: 4.4848
+   MAPE% Test: 15.21%
+   Overfitting Gap: 0.0099
+
+3. Gradient Boosting (n=100, lr=0.1)
+   R² Test: 0.9716
+   Adj R² Test: 0.9707
+   MAE Test: 4.6543
+   MAPE% Test: 18.19%
+   Overfitting Gap: 0.0173
+
+================================================================================
+KEY INSIGHTS
+================================================================================
+
+• Best performing model: XGBoost (n=100, λ=1.0)
+  - Achieved R² = 0.9768 on test set
+  - MAPE = 13.77%
+  - Overfitting gap = 0.0225
+
+• Baseline (Linear Regression): R² = 0.7078
+
+• Improvement over baseline: 0.2690 (38.0%)
+
+• Models with low overfitting (gap < 0.05):
+  - XGBoost (n=100, λ=1.0): gap = 0.0225
+  - MLP (64, 32) (α=0.0001): gap = 0.0099
+  - Gradient Boosting (n=100, lr=0.1): gap = 0.0173
+  - Random Forest (n=100, depth=None): gap = 0.0366
+  - Decision Tree (depth=5): gap = 0.0318
+  - Ridge (α=1.0): gap = -0.0028
+  - Linear Regression: gap = -0.0028
+  - Lasso (α=0.1): gap = -0.0024
+  - ElasticNet (α=0.1, ratio=0.5): gap = -0.0032

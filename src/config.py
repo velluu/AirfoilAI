@@ -3,6 +3,7 @@ from datetime import datetime
 
 PROJECT_ROOT = Path(__file__).parent.parent
 DATA_DIR = PROJECT_ROOT / 'data' / 'processed'
+RAW_DATASET_DIR = PROJECT_ROOT / 'data' / 'Dataset'
 RESULTS_DIR = PROJECT_ROOT / 'results'
 FIGURES_DIR = RESULTS_DIR / 'figures'
 TABLES_DIR = RESULTS_DIR / 'tables'

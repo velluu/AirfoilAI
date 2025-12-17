@@ -21,16 +21,5 @@ def load_airfrans_data(data_dir: Path) -> Tuple[Tuple[List[Any], List[str]], Tup
     print(f"✓ Loaded {len(test_simulations)} test simulations")
     
     return (train_simulations, train_filenames), (test_simulations, test_filenames)
-    u_inf = float(parts[0])
-    aoa = float(parts[1])
-    reynolds = u_inf / 1.56e-5  # kinematic viscosity
-    naca_digits = [float(p) for p in parts[2:]]
-    
-    return {
-        'u_inf': u_inf,
-        'aoa': aoa,
-        'reynolds': reynolds,
-        'naca_digits': naca_digits
-    }
 
 
