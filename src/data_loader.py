@@ -1,53 +1,39 @@
-"""
-Data loading module for AirfRANS dataset
-Handles loading pickled simulation data and extracting metadata
-"""
-import numpy as np
-import joblib
+import pandas as pd
 from pathlib import Path
-from typing import Tuple, List
-from src.config import PROCESSED_DATA_DIR
+from typing import Tuple
 
-
-def load_airfrans_data() -> Tuple[tuple, tuple]:
-    """
-    Load processed AirfRANS dataset
+def load_palmo_data(data_dir: Path) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    cl_path = data_dir / 'PALMO_NACA_4_series_cl.txt'
+    cd_path = data_dir / 'PALMO_NACA_4_series_cd.txt'
+    cm_path = data_dir / 'PALMO_NACA_4_series_cm.txt'
     
-    Returns:
-        train: (simulations_list, filenames_list)
-        test: (simulations_list, filenames_list)
-    """
-    train_path = PROCESSED_DATA_DIR / 'dataset_full_train.pkl'
-    test_path = PROCESSED_DATA_DIR / 'dataset_full_test.pkl'
+    if not cl_path.exists() or not cd_path.exists() or not cm_path.exists():
+        raise FileNotFoundError(f"PALMO data files not found in {data_dir}")
     
-    if not train_path.exists() or not test_path.exists():
-        raise FileNotFoundError(
-            f"Processed data not found. Run data setup first.\n"
-            f"Expected files:\n  {train_path}\n  {test_path}"
-        )
+    cl_df = pd.read_csv(cl_path, names=['camber', 'thickness', 'Mach', 'Re', 'alpha', 'cl'])
+    cd_df = pd.read_csv(cd_path, names=['camber', 'thickness', 'Mach', 'Re', 'alpha', 'cd'])
+    cm_df = pd.read_csv(cm_path, names=['camber', 'thickness', 'Mach', 'Re', 'alpha', 'cm'])
     
-    train = joblib.load(train_path)
-    test = joblib.load(test_path)
+    df = cl_df.merge(cd_df, on=['camber', 'thickness', 'Mach', 'Re', 'alpha'])
+    df = df.merge(cm_df, on=['camber', 'thickness', 'Mach', 'Re', 'alpha'])
     
-    print(f"✓ Loaded {len(train[0])} training simulations")
-    print(f"✓ Loaded {len(test[0])} test simulations")
+    df['camber_pos'] = 0.4
+    df = df[df['cd'] >= 0.0001].copy()
+    df['L_D'] = df['cl'] / df['cd']
     
-    return train, test
-
-
-def parse_airfrans_filename(filename: str) -> dict:
-    """
-    Parse AirfRANS filename to extract simulation parameters
+    train_airfoils = [(0.00, 0.06), (0.00, 0.12), (0.00, 0.18), (0.00, 0.24),
+                      (0.02, 0.06), (0.02, 0.12), (0.02, 0.18), (0.02, 0.24),
+                      (0.04, 0.06), (0.04, 0.12), (0.04, 0.18), (0.04, 0.24)]
+    test_airfoils = [(0.03, 0.15), (0.03, 0.18), (0.04, 0.15), (0.04, 0.21)]
     
-    Format: airFoil2D_SST_{Uinf}_{AoA}_{naca_digits...}
+    train_mask = df.apply(lambda row: (row['camber'], row['thickness']) in train_airfoils, axis=1)
+    train_df = df[train_mask].copy()
+    test_df = df[~train_mask].copy()
     
-    Args:
-        filename: Simulation filename
-        
-    Returns:
-        Dictionary with u_inf, aoa, reynolds, naca_digits
-    """
-    parts = filename.replace('airFoil2D_SST_', '').split('_')
+    print(f"✓ Loaded {len(train_df)} training samples (12 airfoils)")
+    print(f"✓ Loaded {len(test_df)} test samples (4 airfoils)")
+    
+    return train_df, test_df
     u_inf = float(parts[0])
     aoa = float(parts[1])
     reynolds = u_inf / 1.56e-5  # kinematic viscosity
@@ -61,33 +47,3 @@ def parse_airfrans_filename(filename: str) -> dict:
     }
 
 
-def get_dataset_statistics(data: tuple) -> dict:
-    """
-    Get basic statistics about the dataset
-    
-    Args:
-        data: (simulations_list, filenames_list)
-        
-    Returns:
-        Dictionary with dataset statistics
-    """
-    simulations, filenames = data
-    
-    naca_3_count = 0
-    naca_4_count = 0
-    
-    for fname in filenames:
-        parts = fname.replace('airFoil2D_SST_', '').split('_')
-        naca_count = len(parts[2:])
-        if naca_count == 3:
-            naca_3_count += 1
-        elif naca_count == 4:
-            naca_4_count += 1
-    
-    return {
-        'total_samples': len(simulations),
-        'naca_3_series': naca_3_count,
-        'naca_4_series': naca_4_count,
-        'avg_mesh_points': int(np.mean([sim.shape[0] for sim in simulations])),
-        'flow_variables': simulations[0].shape[1]
-    }

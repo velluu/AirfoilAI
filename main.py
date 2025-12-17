@@ -1,53 +1,32 @@
-"""
-Main Pipeline - AirfoilAI Model Comparison Study
-Complete workflow from data loading to final results
-"""
-import sys
-from pathlib import Path
-sys.path.append(str(Path(__file__).parent.parent))
-
-from src.config import ensure_directories, get_run_id
-from src.data_loader import load_airfrans_data, get_dataset_statistics
-from src.feature_extraction import extract_dataset_features, prepare_train_test_split
-from src.models import ModelRegistry, train_model_with_scaling
-from src.evaluation import evaluate_model, create_comparison_table, save_metrics_log, print_evaluation_summary
-from src.visualization import create_all_visualizations
-
+from src.config import generate_run_id, DATA_DIR, FIGURES_DIR, TABLES_DIR, METRICS_DIR
+from src.data_loader import load_palmo_data
+from src.feature_extraction import prepare_features
+from src.models import ModelTrainer
+from src.evaluation import ModelEvaluator
+from src.visualization import create_comparison_plots, plot_learning_curves, plot_feature_importance, plot_prediction_scatter
+from sklearn.preprocessing import StandardScaler
+import pandas as pd
 
 def main():
-    """Execute complete ML comparison pipeline"""
+    run_id = generate_run_id()
+    print(f"\\n=== AirfoilAI Pipeline Started ===\")
+    print(f\"Run ID: {run_id}\\n\")
     
-    print("="*80)
-    print("AIRFOILAI - COMPREHENSIVE ML MODEL COMPARISON")
-    print("="*80)
-    print()
+    print(\"Loading PALMO data...\")
+    train_df, test_df = load_palmo_data(DATA_DIR)
     
-    # Generate unique run ID
-    run_id = get_run_id()
-    print(f"Run ID: {run_id}\n")
+    print(f\"Train: {len(train_df)} samples, Test: {len(test_df)} samples\")
     
-    # Ensure all directories exist
-    ensure_directories()
+    print(\"Preparing features...\")
+    train_features = prepare_features(train_df)
+    test_features = prepare_features(test_df)
     
-    # ========================================================================
-    # STEP 1: LOAD DATA
-    # ========================================================================
-    print("STEP 1: Loading AirfRANS dataset...")
-    print("-" * 80)
+    feature_cols = ['camber', 'camber_pos', 'thickness', 'Mach', 'log_Re', 'alpha']
     
-    train_data, test_data = load_airfrans_data()
-    
-    train_stats = get_dataset_statistics(train_data)
-    test_stats = get_dataset_statistics(test_data)
-    
-    print("\nDataset Statistics:")
-    print(f"  Training: {train_stats['total_samples']} samples")
-    print(f"    - NACA-3: {train_stats['naca_3_series']}")
-    print(f"    - NACA-4: {train_stats['naca_4_series']}")
-    print(f"  Test: {test_stats['total_samples']} samples")
-    print(f"    - NACA-3: {test_stats['naca_3_series']}")
-    print(f"    - NACA-4: {test_stats['naca_4_series']}")
-    print()
+    X_train = train_features[feature_cols]
+    y_train = train_features['L_D']
+    X_test = test_features[feature_cols]
+    y_test = test_features['L_D']
     
     # ========================================================================
     # STEP 2: FEATURE EXTRACTION
@@ -68,82 +47,35 @@ def main():
     
     models = ModelRegistry.get_all_baseline_models()
     results_list = []
-    trained_models = []
     
-    for model, model_name in models:
-        print(f"\nTraining: {model_name}")
-        
-        try:
-            trained_model, scaler, X_test_scaled = train_model_with_scaling(
-                model, X_train, y_train, X_test
-            )
-            
-            results = evaluate_model(
-                trained_model, scaler, 
-                X_train, y_train, X_test, y_test, 
-                model_name
-            )
-            
-            results_list.append(results)
-            trained_models.append((trained_model, scaler, model_name))
-            
-            print(f"  R² Test: {results['R² Test']:.4f}")
-            print(f"  MAE Test: {results['MAE Test']:.4f}")
-            
-        except Exception as e:
-            print(f"  ✗ Failed: {e}")
-            continue
+    print("Scaling features...")
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
     
-    # ========================================================================
-    # STEP 4: CREATE COMPARISON TABLE
-    # ========================================================================
-    print("\nSTEP 4: Creating comparison tables and metrics...")
-    print("-" * 80)
+    print("Training models...")
+    trainer = ModelTrainer()
+    models = trainer.train_all_models(X_train_scaled, y_train)
     
-    results_df = create_comparison_table(results_list, run_id)
+    print("Evaluating models...")
+    evaluator = ModelEvaluator()
+    results = {}
+    for name, model in models.items():
+        results[name] = evaluator.evaluate_model(model, X_train_scaled, y_train, X_test_scaled, y_test)
     
-    # Save detailed metrics log
-    metadata = {
-        'Train Samples': len(X_train),
-        'Test Samples': len(X_test),
-        'Features': X_train.shape[1],
-        'Models Evaluated': len(results_list)
-    }
-    save_metrics_log(results_df, run_id, metadata)
+    comparison_table = evaluator.create_comparison_table(results)
+    comparison_table.to_csv(TABLES_DIR / f'model_comparison_{run_id}.csv', index=False)
     
-    # Print summary
-    print_evaluation_summary(results_df)
+    evaluator.save_metrics_log(results, METRICS_DIR / f'metrics_{run_id}.txt')
     
-    # ========================================================================
-    # STEP 5: CREATE VISUALIZATIONS
-    # ========================================================================
-    print("\nSTEP 5: Generating visualizations...")
-    print("-" * 80)
+    print("Creating visualizations...")
+    create_comparison_plots(comparison_table, FIGURES_DIR, run_id)
+    plot_learning_curves(models, X_train_scaled, y_train, FIGURES_DIR, run_id)
+    plot_feature_importance(models, feature_cols, FIGURES_DIR, run_id)
+    plot_prediction_scatter(models, X_test_scaled, y_test, FIGURES_DIR, run_id)
     
-    # Get best model
-    best_idx = results_df.iloc[0]['Rank'] - 1
-    best_model, best_scaler, best_name = trained_models[best_idx]
-    
-    create_all_visualizations(
-        results_df, best_model, best_scaler, 
-        X_test, y_test, best_name, run_id
-    )
-    
-    # ========================================================================
-    # FINAL SUMMARY
-    # ========================================================================
-    print("\n" + "="*80)
-    print("PIPELINE COMPLETE")
+    print(f"\\nResults saved with run_id: {run_id}")
     print("="*80)
-    print(f"\nRun ID: {run_id}")
-    print(f"Best Model: {results_df.iloc[0]['Model']}")
-    print(f"R² Test: {results_df.iloc[0]['R² Test']:.4f}")
-    print(f"\nResults saved in:")
-    print(f"  - Metrics: ideas/metrics/metrics_{run_id}.txt")
-    print(f"  - Tables: results/tables/model_comparison_{run_id}.csv")
-    print(f"  - Figures: results/figures/*_{run_id}.png")
-    print("="*80 + "\n")
-
 
 if __name__ == "__main__":
     main()

@@ -1,6 +1,6 @@
 # AirfoilAI - ML Model Comparison for L/D Prediction
 
-Comprehensive machine learning comparison study for predicting airfoil lift-to-drag (L/D) ratios using the AirfRANS CFD dataset.
+Comprehensive machine learning comparison study for predicting airfoil lift-to-drag (L/D) ratios using the PALMO (OVERFLOW Machine Learning Airfoil Performance) dataset from NASA.
 
 ## Project Structure
 
@@ -9,14 +9,13 @@ AirfoilAI/
 ├── main.py                 # Main pipeline script
 ├── src/
 │   ├── config.py          # Configuration and paths
-│   ├── data_loader.py     # AirfRANS data loading
-│   ├── feature_extraction.py  # Feature engineering and L/D computation
+│   ├── data_loader.py     # PALMO data loading
+│   ├── feature_extraction.py  # Feature preparation (log_Re transform)
 │   ├── models.py          # Model registry (Linear, Trees, RF, XGBoost, MLP)
 │   ├── evaluation.py      # Metrics and comparison tables
 │   └── visualization.py   # Publication-quality figures
 ├── data/
-│   ├── raw/              # Raw AirfRANS data
-│   └── processed/        # Processed .pkl files
+│   └── raw/              # PALMO coefficient files
 ├── results/
 │   ├── figures/          # Model comparison plots
 │   └── tables/           # CSV comparison tables
@@ -37,9 +36,12 @@ conda activate airfoilai
 
 ### 2. Prepare Data
 
-Place AirfRANS processed data files in `data/processed/`:
-- `dataset_full_train.pkl`
-- `dataset_full_test.pkl`
+Download PALMO coefficient files from NASA and place in `data/raw/`:
+- `PALMO_NACA_4_series_cl.txt`
+- `PALMO_NACA_4_series_cd.txt`
+- `PALMO_NACA_4_series_cm.txt`
+
+**Source**: https://ntrs.nasa.gov/citations/20240014546 (NASA Technical Report)
 
 ### 3. Run Complete Pipeline
 
@@ -48,11 +50,13 @@ python main.py
 ```
 
 This will:
-1. Load AirfRANS CFD simulations (800 train, 200 test)
-2. Extract features (Reynolds, AoA, NACA parameters) and compute L/D
+1. Load PALMO dataset (52,480 total CFD simulations)
+   - Train: 12 airfoils × 3,280 conditions = 39,360 samples
+   - Test: 4 airfoils × 3,280 conditions = 13,120 samples
+2. Prepare features: camber, camber_pos, thickness, Mach, log_Re, alpha → L/D
 3. Train 9 models: Linear, Lasso, Ridge, ElasticNet, DecisionTree, RandomForest, GradientBoosting, XGBoost, MLP
-4. Generate comparison tables and metrics
-5. Create visualizations
+4. Evaluate with 6 metrics: R², Adj R², MAE, RMSE, MAPE, train-test gap
+5. Generate comparison visualizations
 
 ## Output Files
 
@@ -74,3 +78,12 @@ Each run generates unique timestamped files:
 ## Requirements
 
 Python 3.11+, scikit-learn, xgboost, torch, numpy, pandas, matplotlib, seaborn
+
+## Dataset: PALMO
+
+- **16 NACA 4-series airfoils**: 12 training + 4 test (unseen geometries)
+- **52,480 CFD simulations**: NASA OVERFLOW RANS with Spalart-Allmaras turbulence
+- **Conditions**: 10 Mach (0.25-0.90) × 8 Re (75k-8M) × 41 AoA (-20° to +20°)
+- **Features**: Camber, camber position, thickness, Mach, Reynolds, angle of attack
+- **Target**: L/D = Cl / Cd (lift-to-drag ratio)
+- **Source**: High-fidelity data for ML surrogate validation from NASA Rotorcraft Systems Engineering
