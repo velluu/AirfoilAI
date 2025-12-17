@@ -1,9 +1,9 @@
 import numpy as np
 import pandas as pd
-from typing import List, Any
+from typing import List, Any, Optional
 import re
 
-def parse_filename(filename: str) -> dict:
+def parse_filename(filename: str) -> Optional[dict]:
     pattern = r'Uinf_([\d.]+)_AoA_([\d.-]+)_NACA(\d)(\d)(\d)(\d?)'
     match = re.search(pattern, filename)
     if not match:

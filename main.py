@@ -1,11 +1,15 @@
 from src.config import generate_run_id, DATA_DIR, FIGURES_DIR, TABLES_DIR, METRICS_DIR
 from src.data_loader import load_airfrans_data
 from src.feature_extraction import extract_features_from_simulations
-from src.models import ModelTrainer
-from src.evaluation import ModelEvaluator
-from src.visualization import create_comparison_plots, plot_learning_curves, plot_feature_importance, plot_prediction_scatter
 from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LinearRegression, Lasso, Ridge, ElasticNet
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.neural_network import MLPRegressor
+from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
+import xgboost as xgb
 import pandas as pd
+import numpy as np
 
 def main():
     run_id = generate_run_id()
@@ -27,53 +31,62 @@ def main():
     X_test = test_df[feature_cols]
     y_test = test_df['L_D']
     
-    # ========================================================================
-    # STEP 2: FEATURE EXTRACTION
-    # ========================================================================
-    print("STEP 2: Extracting features and computing L/D ratios...")
-    print("-" * 80)
-    
-    df_train = extract_dataset_features(train_data, "training set")
-    df_test = extract_dataset_features(test_data, "test set")
-    
-    X_train, X_test, y_train, y_test = prepare_train_test_split(df_train, df_test)
-    
-    # ========================================================================
-    # STEP 3: TRAIN AND EVALUATE ALL MODELS
-    # ========================================================================
-    print("\nSTEP 3: Training and evaluating all models...")
-    print("-" * 80)
-    
-    models = ModelRegistry.get_all_baseline_models()
-    results_list = []
-    
-    print("Scaling features...")
+    print("\nScaling features...")
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
     
-    print("Training models...")
-    trainer = ModelTrainer()
-    models = trainer.train_all_models(X_train_scaled, y_train)
+    print("\nTraining models...")
+    models = {
+        'Linear Regression': LinearRegression(),
+        'Lasso': Lasso(alpha=0.1),
+        'Ridge': Ridge(alpha=1.0),
+        'ElasticNet': ElasticNet(alpha=0.1, l1_ratio=0.5),
+        'Decision Tree (depth=5)': DecisionTreeRegressor(max_depth=5, random_state=42),
+        'Decision Tree (depth=10)': DecisionTreeRegressor(max_depth=10, random_state=42),
+        'Random Forest': RandomForestRegressor(n_estimators=100, random_state=42),
+        'Gradient Boosting': GradientBoostingRegressor(n_estimators=100, random_state=42),
+        'XGBoost': xgb.XGBRegressor(n_estimators=100, random_state=42),
+        'MLP': MLPRegressor(hidden_layer_sizes=(64, 32), max_iter=500, random_state=42)
+    }
     
-    print("Evaluating models...")
-    evaluator = ModelEvaluator()
-    results = {}
+    results = []
     for name, model in models.items():
-        results[name] = evaluator.evaluate_model(model, X_train_scaled, y_train, X_test_scaled, y_test)
+        print(f"  Training {name}...")
+        model.fit(X_train_scaled, y_train)
+        
+        y_train_pred = model.predict(X_train_scaled)
+        y_test_pred = model.predict(X_test_scaled)
+        
+        r2_train = r2_score(y_train, y_train_pred)
+        r2_test = r2_score(y_test, y_test_pred)
+        mae_test = mean_absolute_error(y_test, y_test_pred)
+        rmse_test = np.sqrt(mean_squared_error(y_test, y_test_pred))
+        
+        results.append({
+            'Model': name,
+            'R² Train': r2_train,
+            'R² Test': r2_test,
+            'MAE Test': mae_test,
+            'RMSE Test': rmse_test,
+            'Gap': r2_train - r2_test
+        })
     
-    comparison_table = evaluator.create_comparison_table(results)
-    comparison_table.to_csv(TABLES_DIR / f'model_comparison_{run_id}.csv', index=False)
+    results_df = pd.DataFrame(results).sort_values('R² Test', ascending=False)
+    results_df.to_csv(TABLES_DIR / f'model_comparison_{run_id}.csv', index=False)
     
-    evaluator.save_metrics_log(results, METRICS_DIR / f'metrics_{run_id}.txt')
+    print("\n" + "="*80)
+    print("Results:")
+    print("="*80)
+    print(results_df.to_string(index=False))
     
-    print("Creating visualizations...")
-    create_comparison_plots(comparison_table, FIGURES_DIR, run_id)
-    plot_learning_curves(models, X_train_scaled, y_train, FIGURES_DIR, run_id)
-    plot_feature_importance(models, feature_cols, FIGURES_DIR, run_id)
-    plot_prediction_scatter(models, X_test_scaled, y_test, FIGURES_DIR, run_id)
+    with open(METRICS_DIR / f'metrics_{run_id}.txt', 'w') as f:
+        f.write(f"Run ID: {run_id}\n")
+        f.write(f"Train samples: {len(X_train)}\n")
+        f.write(f"Test samples: {len(X_test)}\n\n")
+        f.write(results_df.to_string(index=False))
     
-    print(f"\\nResults saved with run_id: {run_id}")
+    print(f"\n✓ Results saved with run_id: {run_id}")
     print("="*80)
 
 if __name__ == "__main__":
