@@ -1,6 +1,6 @@
 from src.config import generate_run_id, DATA_DIR, FIGURES_DIR, TABLES_DIR, METRICS_DIR
-from src.data_loader import load_palmo_data
-from src.feature_extraction import prepare_features
+from src.data_loader import load_airfrans_data
+from src.feature_extraction import extract_features_from_simulations
 from src.models import ModelTrainer
 from src.evaluation import ModelEvaluator
 from src.visualization import create_comparison_plots, plot_learning_curves, plot_feature_importance, plot_prediction_scatter
@@ -9,24 +9,23 @@ import pandas as pd
 
 def main():
     run_id = generate_run_id()
-    print(f"\\n=== AirfoilAI Pipeline Started ===\")
-    print(f\"Run ID: {run_id}\\n\")
+    print(f"\n=== AirfoilAI Pipeline Started ===")
+    print(f"Run ID: {run_id}\n")
     
-    print(\"Loading PALMO data...\")
-    train_df, test_df = load_palmo_data(DATA_DIR)
+    print("Loading AirfRANS data...")
+    (train_sims, train_names), (test_sims, test_names) = load_airfrans_data(DATA_DIR)
     
-    print(f\"Train: {len(train_df)} samples, Test: {len(test_df)} samples\")
+    print("Extracting features...")
+    train_df = extract_features_from_simulations(train_sims, train_names)
+    test_df = extract_features_from_simulations(test_sims, test_names)
     
-    print(\"Preparing features...\")
-    train_features = prepare_features(train_df)
-    test_features = prepare_features(test_df)
+    feature_cols = ['Uinf', 'AoA', 'NACA_1', 'NACA_2', 'NACA_3', 'NACA_4',
+                    'mean_pressure', 'std_pressure', 'mean_velocity', 'max_velocity']
     
-    feature_cols = ['camber', 'camber_pos', 'thickness', 'Mach', 'log_Re', 'alpha']
-    
-    X_train = train_features[feature_cols]
-    y_train = train_features['L_D']
-    X_test = test_features[feature_cols]
-    y_test = test_features['L_D']
+    X_train = train_df[feature_cols]
+    y_train = train_df['L_D']
+    X_test = test_df[feature_cols]
+    y_test = test_df['L_D']
     
     # ========================================================================
     # STEP 2: FEATURE EXTRACTION

@@ -1,6 +1,6 @@
 # AirfoilAI - ML Model Comparison for L/D Prediction
 
-Comprehensive machine learning comparison study for predicting airfoil lift-to-drag (L/D) ratios using the PALMO (OVERFLOW Machine Learning Airfoil Performance) dataset from NASA.
+Comprehensive machine learning comparison study for predicting airfoil lift-to-drag (L/D) ratios using the AirfRANS CFD dataset.
 
 ## Project Structure
 
