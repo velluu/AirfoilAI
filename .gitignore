@@ -32,6 +32,7 @@ data/Dataset.zip
 # Model files (large binary files)
 models/*
 !models/.gitkeep
+!models/instruc.md
 *.pkl
 *.pickle
 *.joblib
